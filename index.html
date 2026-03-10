@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ro" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistemul Energetic - Monitorizare Rețea Electrică România</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Flatpickr -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+
+  <!-- App Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        <h1>Sistemul Energetic</h1>
+      </div>
+      <button class="theme-toggle" id="themeToggle" aria-label="Comută tema">
+        <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Date Range Picker -->
+    <section class="date-section">
+      <div class="date-picker-group">
+        <label for="dateRange">Interval de date</label>
+        <div class="date-input-wrap">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <input type="text" id="dateRange" placeholder="Selectează intervalul...">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="loadData">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+        </svg>
+        Încarcă date
+      </button>
+    </section>
+
+    <!-- Stats Cards -->
+    <section class="stats-grid" id="statsGrid">
+      <div class="stat-card">
+        <div class="stat-label">Producție totală</div>
+        <div class="stat-value" id="statProduction">—</div>
+        <div class="stat-unit">MW</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Consum</div>
+        <div class="stat-value" id="statConsumption">—</div>
+        <div class="stat-unit">MW</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Regenerabile</div>
+        <div class="stat-value" id="statRenewables">—</div>
+        <div class="stat-unit">%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Sold export</div>
+        <div class="stat-value" id="statExport">—</div>
+        <div class="stat-unit">MW</div>
+      </div>
+    </section>
+
+    <!-- Main Stacked Area Chart -->
+    <section class="chart-section">
+      <div class="chart-card">
+        <h2 class="chart-title">Mixul energetic în timp</h2>
+        <div class="chart-wrap" id="mainChart">
+          <div class="chart-skeleton"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Two Charts Side by Side -->
+    <section class="chart-grid">
+      <div class="chart-card">
+        <h2 class="chart-title">Distribuția curentă pe surse</h2>
+        <div class="chart-wrap" id="donutChart">
+          <div class="chart-skeleton"></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h2 class="chart-title">Producție vs. Consum</h2>
+        <div class="chart-wrap" id="supplyDemandChart">
+          <div class="chart-skeleton"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Data Table -->
+    <section class="table-section">
+      <button class="table-toggle" id="tableToggle">
+        <h2>Tabel de date</h2>
+        <svg class="toggle-arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      <div class="table-wrap" id="tableWrap">
+        <div class="table-scroll">
+          <table id="dataTable">
+            <thead>
+              <tr id="tableHeader"></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>Date furnizate de Transelectrica &middot; Sistemul Energetic Național</p>
+  </footer>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <p>Se încarcă datele...</p>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ro.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
