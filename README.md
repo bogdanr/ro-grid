@@ -4,6 +4,8 @@ A modern, interactive dashboard for monitoring Romania's national electricity gr
 
 ![Dark theme](https://img.shields.io/badge/theme-dark%20%2F%20light-blue)
 
+![Dashboard Screenshot](screenshot.png)
+
 ## Features
 
 - **Live data** from the national grid (~15 min intervals)

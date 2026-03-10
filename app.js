@@ -413,7 +413,7 @@ function renderSupplyDemandChart() {
 
   const options = {
     chart: {
-      type: 'line',
+      type: 'area',
       height: 380,
       foreColor: chartForeColor(),
       toolbar: { show: true },
@@ -442,6 +442,7 @@ function renderSupplyDemandChart() {
     yaxis: {
       title: { text: 'MW' },
       labels: { formatter: (v) => v.toFixed(0) },
+      min: (min) => Math.floor(min * 0.95),
     },
     grid: {
       borderColor: chartGridColor(),
@@ -451,10 +452,10 @@ function renderSupplyDemandChart() {
     fill: {
       type: 'gradient',
       gradient: {
-        shade: 'dark',
+        shadeIntensity: 1,
         type: 'vertical',
-        opacityFrom: 0.3,
-        opacityTo: 0.05,
+        opacityFrom: 0.25,
+        opacityTo: 0.02,
       },
     },
     tooltip: {
