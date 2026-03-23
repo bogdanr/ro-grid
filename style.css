@@ -283,6 +283,7 @@ body {
   color: var(--text-heading);
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
+  display: inline;
 }
 
 /* Primary metrics get more visual weight — production & consumption are the headline numbers */
@@ -294,7 +295,8 @@ body {
 .stat-unit {
   font-size: 0.8125rem;
   color: var(--text-muted);
-  margin-top: 4px;
+  display: inline;
+  margin-left: 4px;
 }
 
 /* Colored accent border-top gives each stat card its own visual identity
