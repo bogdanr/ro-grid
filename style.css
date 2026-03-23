@@ -7,6 +7,14 @@
   --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05);
   --transition: .2s ease;
 
+  /* Spacing scale */
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
   /* Energy source colors */
   --c-nuclear: #22c55e;
   --c-wind: #06b6d4;
@@ -17,11 +25,14 @@
   --c-biomass: #84cc16;
   --c-storage: #ec4899;
   --c-export: #ef4444;
-  --c-production: #8b5cf6;
+  --c-error: #ef4444;         /* semantic alias for UI error/danger states */
+  --c-production: #6366f1;    /* indigo — distinct from --c-hydrocarbons violet */
   --c-consumption: #f97316;
+  --c-renewables: #10b981;    /* emerald — distinct from --c-nuclear (#22c55e) */
+  --c-import: #f59e0b;        /* amber — net import (buying from neighbors), informational not alarming */
 }
 
-/* Dark theme (default) */
+/* Dark theme (default) — header top border uses accent */
 [data-theme="dark"] {
   --bg: #0f172a;
   --bg-card: #1e293b;
@@ -44,7 +55,7 @@
   --bg-input: #ffffff;
   --border: #e2e8f0;
   --text: #1e293b;
-  --text-muted: #64748b;
+  --text-muted: #475569;  /* slate-600 — passes WCAG AA (6.6:1) on --bg and --bg-card */
   --text-heading: #0f172a;
   --accent: #3b82f6;
   --accent-hover: #2563eb;
@@ -74,6 +85,7 @@ body {
 /* ===== Header ===== */
 .header {
   background: var(--bg-card);
+  border-top: 2px solid var(--accent);  /* brand anchor — grounds the chrome */
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -111,8 +123,8 @@ body {
 
 /* Theme Toggle */
 .theme-toggle {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--bg);
@@ -139,10 +151,10 @@ body {
 .container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 24px;
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-6);
 }
 
 /* ===== Date Picker Section ===== */
@@ -181,6 +193,7 @@ body {
 
 .date-input-wrap:focus-within {
   border-color: var(--accent);
+  outline: none; /* outline handled globally via :focus-visible */
 }
 
 .date-input-wrap svg {
@@ -245,7 +258,7 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: var(--space-6);
   transition: all var(--transition);
 }
 
@@ -272,34 +285,59 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Primary metrics get more visual weight — production & consumption are the headline numbers */
+.stat-card:nth-child(1) .stat-value,
+.stat-card:nth-child(2) .stat-value {
+  font-size: 2.25rem;
+}
+
 .stat-unit {
   font-size: 0.8125rem;
   color: var(--text-muted);
   margin-top: 4px;
 }
 
+/* Colored accent border-top gives each stat card its own visual identity
+   and reinforces the color → metric association seen in the charts */
+.stat-card:nth-child(1) { border-top: 3px solid var(--c-production); }
+.stat-card:nth-child(2) { border-top: 3px solid var(--c-consumption); }
+.stat-card:nth-child(3) { border-top: 3px solid var(--c-renewables); }
+.stat-card:nth-child(4) { border-top: 3px solid var(--c-export); }
+
 .stat-card:nth-child(1) .stat-value { color: var(--c-production); }
 .stat-card:nth-child(2) .stat-value { color: var(--c-consumption); }
-.stat-card:nth-child(3) .stat-value { color: var(--c-nuclear); }
+.stat-card:nth-child(3) .stat-value { color: var(--c-renewables); }  /* was --c-nuclear — fixed semantic collision */
 .stat-card:nth-child(4) .stat-value { color: var(--c-export); }
+
+/* Dynamic export/import states — toggled by JS based on sold value sign */
+.stat-card:nth-child(4).is-import   { border-top-color: var(--c-import); }
+.stat-card:nth-child(4).is-import .stat-value { color: var(--c-import); }
+.stat-card:nth-child(4).is-exporting { border-top-color: var(--c-nuclear); }
+.stat-card:nth-child(4).is-exporting .stat-value { color: var(--c-nuclear); }
 
 /* ===== Chart Sections ===== */
 .chart-section {
   width: 100%;
+  padding-top: var(--space-2); /* extra 8px above main chart — creates 32px total gap from stats */
 }
 
 .chart-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: var(--space-8); /* 32px — more air between the two secondary charts */
 }
 
 .chart-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: var(--space-6);
   transition: all var(--transition);
+}
+
+/* Main hero chart gets more generous padding */
+.chart-section .chart-card {
+  padding: var(--space-8);
 }
 
 .chart-title {
@@ -307,6 +345,39 @@ body {
   font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Hero chart title scales up to match its visual presence */
+.chart-section .chart-title {
+  font-size: 1.125rem;
+}
+
+/* Colored accent pill before each chart title — communicates chart type at a glance */
+.chart-title::before {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Main energy mix chart — gradient across the stacked energy source colors */
+.chart-section .chart-title::before {
+  background: linear-gradient(180deg, var(--c-nuclear) 0%, var(--c-hydro) 40%, var(--c-wind) 70%, var(--c-solar) 100%);
+}
+
+/* Donut chart — single accent color (represents current snapshot) */
+.chart-grid .chart-card:first-child .chart-title::before {
+  background: var(--c-wind);
+}
+
+/* Supply vs. demand chart — bicolor representing production vs. consumption */
+.chart-grid .chart-card:last-child .chart-title::before {
+  background: linear-gradient(180deg, var(--c-production) 50%, var(--c-consumption) 50%);
 }
 
 .chart-wrap {
@@ -351,7 +422,7 @@ body {
   font-family: var(--font);
 }
 
-.table-toggle h2 {
+.table-toggle-title {
   font-size: 1rem;
   font-weight: 600;
 }
@@ -444,11 +515,11 @@ tbody tr:hover {
 /* ===== Footer ===== */
 .footer {
   text-align: center;
-  padding: 24px;
+  padding: var(--space-6);
   color: var(--text-muted);
   font-size: 0.8125rem;
   border-top: 1px solid var(--border);
-  margin-top: 24px;
+  margin-top: var(--space-8);
 }
 
 /* ===== Loading Overlay ===== */
@@ -474,7 +545,7 @@ tbody tr:hover {
 }
 
 .loading-overlay p {
-  color: #e2e8f0;
+  color: #f1f5f9; /* always on dark overlay — fixed by design, not theme */
   font-weight: 500;
 }
 
@@ -499,39 +570,39 @@ tbody tr:hover {
 }
 
 [data-theme="light"] .flatpickr-calendar {
-  background: #fff !important;
+  background: var(--bg-card) !important;
   border: 1px solid var(--border) !important;
 }
 
 [data-theme="light"] .flatpickr-day {
-  color: #1e293b !important;
+  color: var(--text) !important;
 }
 
 [data-theme="light"] .flatpickr-day.selected,
 [data-theme="light"] .flatpickr-day.startRange,
 [data-theme="light"] .flatpickr-day.endRange {
   background: var(--accent) !important;
-  color: #fff !important;
+  color: #fff !important; /* always white on accent */
 }
 
 [data-theme="light"] .flatpickr-months .flatpickr-month,
 [data-theme="light"] .flatpickr-current-month .flatpickr-monthDropdown-months,
 [data-theme="light"] .flatpickr-weekdays,
 [data-theme="light"] span.flatpickr-weekday {
-  background: #fff !important;
-  color: #1e293b !important;
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
 }
 
 /* ===== ApexCharts theme overrides ===== */
 [data-theme="light"] .apexcharts-tooltip {
-  background: #fff !important;
-  color: #1e293b !important;
-  border: 1px solid #e2e8f0 !important;
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
 }
 
 [data-theme="light"] .apexcharts-tooltip-title {
-  background: #f1f5f9 !important;
-  border-bottom: 1px solid #e2e8f0 !important;
+  background: var(--bg) !important;
+  border-bottom: 1px solid var(--border) !important;
 }
 
 /* ===== Responsive ===== */
@@ -547,20 +618,31 @@ tbody tr:hover {
   }
 
   .container {
-    padding: 16px;
-    gap: 16px;
+    padding: var(--space-4);
+    gap: var(--space-4);
   }
 
   .header-inner {
-    padding: 0 16px;
+    padding: 0 var(--space-4);
   }
 
   .stat-value {
     font-size: 1.5rem;
   }
 
-  .chart-card {
-    padding: 16px;
+  /* Reset primary metric upscale on mobile — space is tight */
+  .stat-card:nth-child(1) .stat-value,
+  .stat-card:nth-child(2) .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .chart-card,
+  .chart-section .chart-card {
+    padding: var(--space-4);
+  }
+
+  .chart-section .chart-title {
+    font-size: 1rem;
   }
 
   .chart-wrap {
@@ -575,7 +657,7 @@ tbody tr:hover {
   }
 
   .stat-card {
-    padding: 14px;
+    padding: var(--space-3);
   }
 
   .brand h1 {
@@ -589,5 +671,119 @@ tbody tr:hover {
 
   .btn {
     justify-content: center;
+  }
+}
+
+/* ===== Skip Link ===== */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: top 0.1s;
+}
+
+.skip-link:focus {
+  top: 8px;
+}
+
+/* ===== Screen Reader Only ===== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ===== Error Banner ===== */
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--c-error) 10%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--c-error) 40%, transparent);
+  border-left: 4px solid var(--c-error);
+  border-radius: var(--radius-sm);
+  font-size: 0.9375rem;
+  color: var(--text);
+  flex-wrap: wrap;
+}
+
+.error-banner[hidden] {
+  display: none;
+}
+
+.error-retry {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.error-retry:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ===== Focus Visible ===== */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn:focus-visible,
+.theme-toggle:focus-visible,
+.table-toggle:focus-visible,
+.error-retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+th:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.date-input-wrap:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+/* ===== Disabled State ===== */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ===== Reduced Motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

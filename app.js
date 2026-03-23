@@ -1,19 +1,29 @@
 // ===== Configuration =====
 const API_BASE = '/api/statistics/stream/xml';
 
+// CSS custom properties are the single source of truth for colors.
+// cssVar() reads the live value at render time so theme switches propagate automatically.
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 const SERIES_CONFIG = {
-  'Carbune':          { label: 'Cărbune',        color: '#6b7280', group: 'source' },
-  'Hidrocarburi':     { label: 'Hidrocarburi',    color: '#8b5cf6', group: 'source' },
-  'Hidro':            { label: 'Hidro',           color: '#3b82f6', group: 'source' },
-  'Nuclear':          { label: 'Nuclear',         color: '#22c55e', group: 'source' },
-  'Eolian':           { label: 'Eolian',          color: '#06b6d4', group: 'source' },
-  'Fotovoltaic':      { label: 'Fotovoltaic',     color: '#f59e0b', group: 'source' },
-  'Biomasa':          { label: 'Biomasă',         color: '#84cc16', group: 'source' },
-  'Stocare':          { label: 'Stocare',         color: '#ec4899', group: 'source' },
-  'Sold':             { label: 'Sold export',     color: '#ef4444', group: 'meta' },
-  'Putere debitată':  { label: 'Producție',       color: '#8b5cf6', group: 'meta' },
-  'Putere cerută':    { label: 'Consum',          color: '#f97316', group: 'meta' },
+  'Carbune':          { label: 'Cărbune',        cssVar: '--c-coal',         group: 'source' },
+  'Hidrocarburi':     { label: 'Hidrocarburi',   cssVar: '--c-hydrocarbons', group: 'source' },
+  'Hidro':            { label: 'Hidro',          cssVar: '--c-hydro',        group: 'source' },
+  'Nuclear':          { label: 'Nuclear',        cssVar: '--c-nuclear',      group: 'source' },
+  'Eolian':           { label: 'Eolian',         cssVar: '--c-wind',         group: 'source' },
+  'Fotovoltaic':      { label: 'Fotovoltaic',    cssVar: '--c-solar',        group: 'source' },
+  'Biomasa':          { label: 'Biomasă',        cssVar: '--c-biomass',      group: 'source' },
+  'Stocare':          { label: 'Stocare',        cssVar: '--c-storage',      group: 'source' },
+  'Sold':             { label: 'Sold export',    cssVar: '--c-export',       group: 'meta'   },
+  'Putere debitată':  { label: 'Producție',      cssVar: '--c-production',   group: 'meta'   },
+  'Putere cerută':    { label: 'Consum',         cssVar: '--c-consumption',  group: 'meta'   },
 };
+
+function seriesColor(key) {
+  return cssVar(SERIES_CONFIG[key].cssVar);
+}
 
 // Normalize graph titles from XML (e.g. "Putere debitată" -> our key)
 // The XML may use varying diacritics; map known variants to our canonical keys
@@ -33,6 +43,13 @@ const SOURCE_KEYS = Object.keys(SERIES_CONFIG).filter(k => SERIES_CONFIG[k].grou
 const PRODUCTION_KEY = 'Putere debitată';
 const CONSUMPTION_KEY = 'Putere cerută';
 
+// Table column order and labels — static, computed once
+const TABLE_COLUMNS = ['Ora', ...SOURCE_KEYS, PRODUCTION_KEY, CONSUMPTION_KEY, 'Sold'];
+const TABLE_COLUMN_LABELS = {
+  'Ora': 'Ora',
+  ...Object.fromEntries(Object.entries(SERIES_CONFIG).map(([k, v]) => [k, v.label])),
+};
+
 // ===== State =====
 let rawData = [];
 let mainChart = null;
@@ -41,6 +58,9 @@ let supplyDemandChart = null;
 let flatpickrInstance = null;
 let sortColumn = null;
 let sortDirection = 'asc';
+let abortController = null;
+let lastFetchFrom = null;
+let lastFetchTo = null;
 
 // ===== DOM Elements =====
 const $ = (sel) => document.querySelector(sel);
@@ -50,6 +70,10 @@ const dateRangeInput = $('#dateRange');
 const loadingOverlay = $('#loadingOverlay');
 const tableToggle = $('#tableToggle');
 const tableWrap = $('#tableWrap');
+const errorBanner = $('#errorBanner');
+const errorMessage = $('#errorMessage');
+const errorRetry = $('#errorRetry');
+const liveAnnouncer = $('#liveAnnouncer');
 
 // ===== Initialization =====
 document.addEventListener('DOMContentLoaded', init);
@@ -72,7 +96,6 @@ function initTheme() {
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
     updateChartsTheme();
-    updateFlatpickrTheme();
   });
 }
 
@@ -81,27 +104,25 @@ function getTheme() {
 }
 
 function updateChartsTheme() {
-  const isDark = getTheme() === 'dark';
+  const fore = chartForeColor();
+  const grid = chartGridColor();
+  const tooltipTheme = chartTooltipTheme();
   const opts = {
-    chart: { foreColor: isDark ? '#94a3b8' : '#64748b' },
-    tooltip: { theme: isDark ? 'dark' : 'light' },
-    grid: { borderColor: isDark ? '#334155' : '#e2e8f0' },
+    chart: { foreColor: fore },
+    tooltip: { theme: tooltipTheme },
+    grid: { borderColor: grid },
   };
 
   if (mainChart) mainChart.updateOptions(opts, false, false);
   if (supplyDemandChart) supplyDemandChart.updateOptions(opts, false, false);
   if (donutChart) {
     donutChart.updateOptions({
-      chart: { foreColor: isDark ? '#94a3b8' : '#64748b' },
-      tooltip: { theme: isDark ? 'dark' : 'light' },
-      legend: { labels: { colors: isDark ? '#94a3b8' : '#64748b' } },
-      stroke: { colors: [isDark ? '#1e293b' : '#ffffff'] },
+      chart: { foreColor: fore },
+      tooltip: { theme: tooltipTheme },
+      legend: { labels: { colors: fore } },
+      stroke: { colors: [cssVar('--bg-card')] },
     }, false, false);
   }
-}
-
-function updateFlatpickrTheme() {
-  // Flatpickr theme is handled via CSS overrides on [data-theme]
 }
 
 // ===== Date Picker =====
@@ -116,7 +137,7 @@ function initDatePicker() {
     dateFormat: 'd.m.Y H:i',
     locale: typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.ro ? 'ro' : 'default',
     defaultDate: [yesterday, now],
-    maxDate: now,
+    maxDate: 'today',
   });
 
   loadDataBtn.addEventListener('click', () => {
@@ -125,13 +146,18 @@ function initDatePicker() {
       fetchData(dates[0], dates[1]);
     }
   });
+
+  errorRetry.addEventListener('click', () => {
+    if (lastFetchFrom && lastFetchTo) fetchData(lastFetchFrom, lastFetchTo);
+  });
 }
 
 // ===== Table Toggle =====
 function initTableToggle() {
   tableToggle.addEventListener('click', () => {
-    tableWrap.classList.toggle('open');
+    const isOpen = tableWrap.classList.toggle('open');
     tableToggle.querySelector('.toggle-arrow').classList.toggle('rotated');
+    tableToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
   });
 }
 
@@ -148,18 +174,29 @@ function buildApiUrl(from, to) {
 }
 
 async function fetchData(from, to) {
+  // Cancel any in-flight request
+  if (abortController) abortController.abort();
+  abortController = new AbortController();
+  lastFetchFrom = from;
+  lastFetchTo = to;
+
+  clearError();
   showLoading(true);
+  loadDataBtn.disabled = true;
+  announce('Se încarcă datele...');
+
   const url = buildApiUrl(from, to);
 
   try {
-    const resp = await fetch(url);
+    const resp = await fetch(url, { signal: abortController.signal });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const text = await resp.text();
     rawData = parseXml(text);
 
     if (rawData.length === 0) {
-      alert('Nu s-au găsit date pentru intervalul selectat.');
+      showError('Nu s-au găsit date pentru intervalul selectat.');
       showLoading(false);
+      loadDataBtn.disabled = false;
       return;
     }
 
@@ -169,11 +206,31 @@ async function fetchData(from, to) {
     renderSupplyDemandChart();
     renderTable();
   } catch (err) {
+    if (err.name === 'AbortError') return; // Intentional cancellation
     console.error('Fetch error:', err);
-    alert('Eroare la încărcarea datelor. Verificați conexiunea.');
+    showError('Eroare la încărcarea datelor. Verificați conexiunea.', true);
+    announce('Eroare la încărcarea datelor.');
   } finally {
     showLoading(false);
+    loadDataBtn.disabled = false;
   }
+}
+
+// ===== Error Banner =====
+function showError(msg, retryable = false) {
+  errorMessage.textContent = msg;
+  errorRetry.hidden = !retryable;
+  errorBanner.hidden = false;
+}
+
+function clearError() {
+  errorBanner.hidden = true;
+}
+
+function announce(msg) {
+  // Briefly clear then set to ensure re-announcement if same message
+  liveAnnouncer.textContent = '';
+  requestAnimationFrame(() => { liveAnnouncer.textContent = msg; });
 }
 
 function parseXml(text) {
@@ -235,10 +292,31 @@ function updateStats() {
   animateValue('statConsumption', consumption);
   animateValue('statRenewables', renewablePct, 1);
   animateValue('statExport', sold);
+
+  // Color the export/import card based on flow direction
+  const exportCard = document.querySelector('.stat-card:nth-child(4)');
+  exportCard.classList.toggle('is-import',    sold < 0);
+  exportCard.classList.toggle('is-exporting', sold >= 0);
+
+  // Announce summary to screen readers after animation settles
+  setTimeout(() => {
+    const fmt = (n, d = 0) => n.toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    announce(
+      `Date încărcate. Producție: ${fmt(production)} MW, Consum: ${fmt(consumption)} MW, ` +
+      `Regenerabile: ${fmt(renewablePct, 1)}%, Sold export: ${fmt(sold)} MW.`
+    );
+  }, 900);
 }
 
 function animateValue(id, target, decimals = 0) {
   const el = document.getElementById(id);
+  const fmt = (n) => n.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    el.textContent = fmt(target);
+    return;
+  }
+
   const start = parseFloat(el.textContent) || 0;
   const duration = 800;
   const startTime = performance.now();
@@ -248,7 +326,7 @@ function animateValue(id, target, decimals = 0) {
     const progress = Math.min(elapsed / duration, 1);
     const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
     const current = start + (target - start) * eased;
-    el.textContent = current.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    el.textContent = fmt(current);
     if (progress < 1) requestAnimationFrame(tick);
   }
 
@@ -258,39 +336,42 @@ function animateValue(id, target, decimals = 0) {
 // ===== Loading =====
 function showLoading(visible) {
   loadingOverlay.classList.toggle('visible', visible);
+  loadingOverlay.setAttribute('aria-hidden', visible ? 'false' : 'true');
 }
 
 // ===== Charts Common =====
-function chartForeColor() {
-  return getTheme() === 'dark' ? '#94a3b8' : '#64748b';
-}
-
-function chartGridColor() {
-  return getTheme() === 'dark' ? '#334155' : '#e2e8f0';
-}
-
-function chartTooltipTheme() {
-  return getTheme() === 'dark' ? 'dark' : 'light';
-}
+// Read directly from CSS tokens — no hardcoded values.
+function chartForeColor()    { return cssVar('--text-muted'); }
+function chartGridColor()    { return cssVar('--border'); }
+function chartTooltipTheme() { return getTheme() === 'dark' ? 'dark' : 'light'; }
 
 // ===== Main Stacked Area Chart =====
 function renderMainChart() {
-  const container = $('#mainChart');
-  container.innerHTML = '';
-
   const timestamps = rawData.map(d => d._timestamp);
   const series = SOURCE_KEYS.map(key => ({
     name: SERIES_CONFIG[key].label,
     data: rawData.map(d => Math.max(0, d[key] || 0)),
   }));
-  const colors = SOURCE_KEYS.map(key => SERIES_CONFIG[key].color);
 
-  const options = {
+  // Reuse existing instance — just push new data and x-axis
+  if (mainChart) {
+    mainChart.updateOptions({ series, xaxis: { categories: timestamps } }, false, true);
+    return;
+  }
+
+  const container = $('#mainChart');
+  container.innerHTML = '';
+  // Batch CSS var reads — avoids repeated getComputedStyle calls
+  const fore = chartForeColor();
+  const grid = chartGridColor();
+  const colors = SOURCE_KEYS.map(key => seriesColor(key));
+
+  mainChart = new ApexCharts(container, {
     chart: {
       type: 'area',
       height: 400,
       stacked: true,
-      foreColor: chartForeColor(),
+      foreColor: fore,
       toolbar: { show: true, tools: { download: true, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } },
       zoom: { enabled: true },
       animations: { enabled: true, easing: 'easeinout', speed: 600 },
@@ -302,17 +383,14 @@ function renderMainChart() {
       type: 'datetime',
       categories: timestamps,
       labels: { datetimeUTC: false, format: 'HH:mm' },
-      axisBorder: { color: chartGridColor() },
-      axisTicks: { color: chartGridColor() },
+      axisBorder: { color: grid },
+      axisTicks: { color: grid },
     },
     yaxis: {
       title: { text: 'MW' },
       labels: { formatter: (v) => v.toFixed(0) },
     },
-    grid: {
-      borderColor: chartGridColor(),
-      strokeDashArray: 3,
-    },
+    grid: { borderColor: grid, strokeDashArray: 3 },
     stroke: { curve: 'smooth', width: 1 },
     fill: { type: 'solid', opacity: 0.7 },
     tooltip: {
@@ -320,212 +398,171 @@ function renderMainChart() {
       x: { format: 'dd MMM HH:mm' },
       y: { formatter: (v) => v.toFixed(0) + ' MW' },
     },
-    legend: {
-      position: 'top',
-      horizontalAlign: 'center',
-      fontSize: '12px',
-    },
+    legend: { position: 'top', horizontalAlign: 'center', fontSize: '12px' },
     dataLabels: { enabled: false },
-  };
-
-  mainChart = new ApexCharts(container, options);
+  });
   mainChart.render();
 }
 
 // ===== Donut Chart =====
 function renderDonutChart() {
-  const container = $('#donutChart');
-  container.innerHTML = '';
-
   const latest = rawData[rawData.length - 1];
-  const labels = [];
-  const values = [];
-  const colors = [];
+  const labels = [], values = [], colors = [];
 
   SOURCE_KEYS.forEach(key => {
     const val = Math.max(0, latest[key] || 0);
     if (val > 0) {
       labels.push(SERIES_CONFIG[key].label);
       values.push(val);
-      colors.push(SERIES_CONFIG[key].color);
+      colors.push(seriesColor(key));
     }
   });
 
-  const isDark = getTheme() === 'dark';
+  // Reuse existing instance — update labels/colors then series
+  if (donutChart) {
+    donutChart.updateOptions({ labels, colors }, false, false);
+    donutChart.updateSeries(values, true);
+    return;
+  }
 
-  const options = {
+  const container = $('#donutChart');
+  container.innerHTML = '';
+  // Batch CSS var reads for initial render
+  const fore = chartForeColor();
+
+  donutChart = new ApexCharts(container, {
     chart: {
       type: 'donut',
       height: 380,
-      foreColor: chartForeColor(),
+      foreColor: fore,
       fontFamily: 'Inter, sans-serif',
       animations: { enabled: true, easing: 'easeinout', speed: 800 },
     },
     series: values,
     labels,
     colors,
-    stroke: { colors: [isDark ? '#1e293b' : '#ffffff'], width: 2 },
+    stroke: { colors: [cssVar('--bg-card')], width: 2 },
     plotOptions: {
       pie: {
         donut: {
           size: '55%',
           labels: {
             show: true,
-            name: { show: true, fontSize: '14px', color: chartForeColor() },
-            value: { show: true, fontSize: '20px', fontWeight: 700, color: chartForeColor(), formatter: (v) => parseFloat(v).toFixed(0) + ' MW' },
+            name: { show: true, fontSize: '14px', color: fore },
+            value: { show: true, fontSize: '20px', fontWeight: 700, color: fore, formatter: (v) => parseFloat(v).toFixed(0) + ' MW' },
             total: {
               show: true,
               label: 'Total',
-              color: chartForeColor(),
+              color: fore,
               formatter: (w) => w.globals.seriesTotals.reduce((a, b) => a + b, 0).toFixed(0) + ' MW',
             },
           },
         },
       },
     },
-    legend: {
-      position: 'bottom',
-      fontSize: '12px',
-      labels: { colors: chartForeColor() },
-    },
-    tooltip: {
-      theme: chartTooltipTheme(),
-      y: { formatter: (v) => v.toFixed(0) + ' MW' },
-    },
+    legend: { position: 'bottom', fontSize: '12px', labels: { colors: fore } },
+    tooltip: { theme: chartTooltipTheme(), y: { formatter: (v) => v.toFixed(0) + ' MW' } },
     dataLabels: {
       enabled: true,
       formatter: (val) => val.toFixed(1) + '%',
       style: { fontSize: '11px', fontWeight: 600 },
       dropShadow: { enabled: false },
     },
-  };
-
-  donutChart = new ApexCharts(container, options);
+  });
   donutChart.render();
 }
 
 // ===== Supply vs Demand Chart =====
 function renderSupplyDemandChart() {
+  const timestamps = rawData.map(d => d._timestamp);
+  const series = [
+    { name: 'Producție (debitată)', data: rawData.map(d => d[PRODUCTION_KEY] || 0) },
+    { name: 'Consum (cerută)',      data: rawData.map(d => d[CONSUMPTION_KEY] || 0) },
+  ];
+
+  // Reuse existing instance — just push new data and x-axis
+  if (supplyDemandChart) {
+    supplyDemandChart.updateOptions({ series, xaxis: { categories: timestamps } }, false, true);
+    return;
+  }
+
   const container = $('#supplyDemandChart');
   container.innerHTML = '';
+  // Batch CSS var reads for initial render
+  const fore = chartForeColor();
+  const grid = chartGridColor();
 
-  const timestamps = rawData.map(d => d._timestamp);
-
-  const options = {
+  supplyDemandChart = new ApexCharts(container, {
     chart: {
       type: 'area',
       height: 380,
-      foreColor: chartForeColor(),
+      foreColor: fore,
       toolbar: { show: true },
       zoom: { enabled: true },
       animations: { enabled: true, easing: 'easeinout', speed: 600 },
       fontFamily: 'Inter, sans-serif',
     },
-    series: [
-      {
-        name: 'Producție (debitată)',
-        data: rawData.map(d => d[PRODUCTION_KEY] || 0),
-      },
-      {
-        name: 'Consum (cerută)',
-        data: rawData.map(d => d[CONSUMPTION_KEY] || 0),
-      },
-    ],
-    colors: [SERIES_CONFIG[PRODUCTION_KEY].color, SERIES_CONFIG[CONSUMPTION_KEY].color],
+    series,
+    colors: [seriesColor(PRODUCTION_KEY), seriesColor(CONSUMPTION_KEY)],
     xaxis: {
       type: 'datetime',
       categories: timestamps,
       labels: { datetimeUTC: false, format: 'HH:mm' },
-      axisBorder: { color: chartGridColor() },
-      axisTicks: { color: chartGridColor() },
+      axisBorder: { color: grid },
+      axisTicks: { color: grid },
     },
     yaxis: {
       title: { text: 'MW' },
       labels: { formatter: (v) => v.toFixed(0) },
       min: (min) => Math.floor(min * 0.95),
     },
-    grid: {
-      borderColor: chartGridColor(),
-      strokeDashArray: 3,
-    },
+    grid: { borderColor: grid, strokeDashArray: 3 },
     stroke: { curve: 'smooth', width: 3 },
     fill: {
       type: 'gradient',
-      gradient: {
-        shadeIntensity: 1,
-        type: 'vertical',
-        opacityFrom: 0.25,
-        opacityTo: 0.02,
-      },
+      gradient: { shadeIntensity: 1, type: 'vertical', opacityFrom: 0.25, opacityTo: 0.02 },
     },
     tooltip: {
       theme: chartTooltipTheme(),
       x: { format: 'dd MMM HH:mm' },
       y: { formatter: (v) => v.toFixed(0) + ' MW' },
     },
-    legend: {
-      position: 'top',
-      fontSize: '12px',
-    },
+    legend: { position: 'top', fontSize: '12px' },
     dataLabels: { enabled: false },
     markers: { size: 0, hover: { size: 5 } },
-  };
-
-  supplyDemandChart = new ApexCharts(container, options);
+  });
   supplyDemandChart.render();
 }
 
 // ===== Data Table =====
-function renderTable() {
-  const thead = $('#tableHeader');
-  const tbody = $('#tableBody');
 
-  const columns = ['Ora', ...SOURCE_KEYS, PRODUCTION_KEY, CONSUMPTION_KEY, 'Sold'];
-  const columnLabels = {
-    'Ora': 'Ora',
-    ...Object.fromEntries(Object.entries(SERIES_CONFIG).map(([k, v]) => [k, v.label])),
-  };
-
-  // Header
-  thead.innerHTML = columns.map((col, i) => {
-    let cls = '';
-    if (sortColumn === col) cls = sortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc';
-    return `<th data-col="${col}" class="${cls}">${columnLabels[col] || col}</th>`;
-  }).join('');
-
-  // Add sort handlers
-  thead.querySelectorAll('th').forEach(th => {
-    th.addEventListener('click', () => {
-      const col = th.getAttribute('data-col');
-      if (sortColumn === col) {
-        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-      } else {
-        sortColumn = col;
-        sortDirection = 'asc';
-      }
-      renderTable();
-    });
+// Update sort indicators on existing <th> elements without rebuilding the header.
+// Only re-renders the tbody — called on every sort interaction.
+function sortTable() {
+  $('#tableHeader').querySelectorAll('th').forEach(th => {
+    const col = th.getAttribute('data-col');
+    const active = sortColumn === col;
+    th.className = active ? (sortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc') : '';
+    th.setAttribute('aria-sort', active ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none');
   });
+  renderTableBody();
+}
 
-  // Sort data
+// Renders only the <tbody> rows. Called by renderTable() and sortTable().
+function renderTableBody() {
   let sorted = [...rawData];
   if (sortColumn) {
     sorted.sort((a, b) => {
-      let va = a[sortColumn];
-      let vb = b[sortColumn];
-      if (sortColumn === 'Ora') {
-        va = a._timestamp;
-        vb = b._timestamp;
-      }
+      const va = sortColumn === 'Ora' ? a._timestamp : (a[sortColumn] ?? 0);
+      const vb = sortColumn === 'Ora' ? b._timestamp : (b[sortColumn] ?? 0);
       if (va < vb) return sortDirection === 'asc' ? -1 : 1;
       if (va > vb) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
   }
 
-  // Body
-  tbody.innerHTML = sorted.map(row => {
-    const cells = columns.map(col => {
+  $('#tableBody').innerHTML = sorted.map(row => {
+    const cells = TABLE_COLUMNS.map(col => {
       if (col === 'Ora') {
         const d = new Date(row._timestamp);
         const pad = n => String(n).padStart(2, '0');
@@ -536,4 +573,36 @@ function renderTable() {
     });
     return `<tr>${cells.join('')}</tr>`;
   }).join('');
+}
+
+// Full table render — called once per data load.
+// Rebuilds the header (with event listeners) then delegates to renderTableBody().
+function renderTable() {
+  const thead = $('#tableHeader');
+
+  thead.innerHTML = TABLE_COLUMNS.map(col => {
+    const active = sortColumn === col;
+    const cls = active ? (sortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc') : '';
+    const ariaSort = active ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none';
+    return `<th data-col="${col}" class="${cls}" aria-sort="${ariaSort}" tabindex="0">${TABLE_COLUMN_LABELS[col] || col}</th>`;
+  }).join('');
+
+  thead.querySelectorAll('th').forEach(th => {
+    const handleSort = () => {
+      const col = th.getAttribute('data-col');
+      if (sortColumn === col) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortColumn = col;
+        sortDirection = 'asc';
+      }
+      sortTable(); // only updates indicators + tbody, not the full header
+    };
+    th.addEventListener('click', handleSort);
+    th.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort(); }
+    });
+  });
+
+  renderTableBody();
 }

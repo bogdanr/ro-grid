@@ -18,45 +18,57 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Skip Navigation -->
+  <a class="skip-link" href="#main-content">Sari la conținut principal</a>
+
+  <!-- Screen Reader Live Announcer -->
+  <div id="liveAnnouncer" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+
   <!-- Header -->
   <header class="header">
     <div class="header-inner">
       <div class="brand">
-        <svg class="brand-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="brand-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
         </svg>
         <h1>Sistemul Energetic</h1>
       </div>
       <button class="theme-toggle" id="themeToggle" aria-label="Comută tema">
-        <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
           <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
         </svg>
-        <svg class="icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
       </button>
     </div>
   </header>
 
-  <main class="container">
+  <main class="container" id="main-content">
     <!-- Date Range Picker -->
     <section class="date-section">
       <div class="date-picker-group">
         <label for="dateRange">Interval de date</label>
         <div class="date-input-wrap">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
           <input type="text" id="dateRange" placeholder="Selectează intervalul...">
         </div>
       </div>
       <button class="btn btn-primary" id="loadData">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
           <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
         </svg>
         Încarcă date
       </button>
     </section>
+
+    <!-- Error Banner -->
+    <div id="errorBanner" class="error-banner" role="alert" hidden>
+      <span id="errorMessage"></span>
+      <button class="error-retry" id="errorRetry">Reîncercați</button>
+    </div>
 
     <!-- Stats Cards -->
     <section class="stats-grid" id="statsGrid">
@@ -110,9 +122,9 @@
 
     <!-- Data Table -->
     <section class="table-section">
-      <button class="table-toggle" id="tableToggle">
-        <h2>Tabel de date</h2>
-        <svg class="toggle-arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button class="table-toggle" id="tableToggle" aria-expanded="false" aria-controls="tableWrap">
+        <span class="table-toggle-title">Tabel de date</span>
+        <svg class="toggle-arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
       </button>
@@ -134,16 +146,16 @@
     <p>Date furnizate de Transelectrica &middot; Sistemul Energetic Național</p>
   </footer>
 
-  <!-- Loading Overlay -->
-  <div class="loading-overlay" id="loadingOverlay">
+  <!-- Loading Overlay (visual only; announcements go through #liveAnnouncer) -->
+  <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
     <div class="spinner"></div>
     <p>Se încarcă datele...</p>
   </div>
 
-  <!-- Scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ro.js"></script>
-  <script src="app.js"></script>
+  <!-- Scripts (defer for parallel download without blocking render) -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ro.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>
