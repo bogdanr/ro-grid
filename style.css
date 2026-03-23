@@ -82,6 +82,16 @@ body {
   transition: background var(--transition), color var(--transition);
 }
 
+/* Subtle directional gradient on the page background — breaks the flat monotony
+   and gives the deep dark a hint of blue depth without decorative intent */
+[data-theme="dark"] body {
+  background: linear-gradient(160deg, oklch(14% 0.025 245) 0%, oklch(10% 0.015 258) 100%);
+}
+
+[data-theme="light"] body {
+  background: linear-gradient(160deg, #eef2ff 0%, #f1f5f9 55%);
+}
+
 /* ===== Header ===== */
 .header {
   background: var(--bg-card);
@@ -299,22 +309,49 @@ body {
   margin-left: 4px;
 }
 
-/* Colored accent border-top gives each stat card its own visual identity
-   and reinforces the color → metric association seen in the charts */
-.stat-card:nth-child(1) { border-top: 3px solid var(--c-production); }
-.stat-card:nth-child(2) { border-top: 3px solid var(--c-consumption); }
-.stat-card:nth-child(3) { border-top: 3px solid var(--c-renewables); }
-.stat-card:nth-child(4) { border-top: 3px solid var(--c-export); }
+/* Colored accent border-top + subtle background tint — each card carries its
+   metric's color identity throughout, not just in the border and value */
+.stat-card:nth-child(1) {
+  border-top: 3px solid var(--c-production);
+  background: color-mix(in srgb, var(--c-production) 5%, var(--bg-card));
+}
+.stat-card:nth-child(2) {
+  border-top: 3px solid var(--c-consumption);
+  background: color-mix(in srgb, var(--c-consumption) 5%, var(--bg-card));
+}
+.stat-card:nth-child(3) {
+  border-top: 3px solid var(--c-renewables);
+  background: color-mix(in srgb, var(--c-renewables) 5%, var(--bg-card));
+}
+.stat-card:nth-child(4) {
+  border-top: 3px solid var(--c-export);
+  background: color-mix(in srgb, var(--c-export) 5%, var(--bg-card));
+}
+
+/* Per-card hover — tint deepens slightly instead of switching to --bg-card-hover */
+.stat-card:nth-child(1):hover { background: color-mix(in srgb, var(--c-production) 10%, var(--bg-card)); }
+.stat-card:nth-child(2):hover { background: color-mix(in srgb, var(--c-consumption) 10%, var(--bg-card)); }
+.stat-card:nth-child(3):hover { background: color-mix(in srgb, var(--c-renewables) 10%, var(--bg-card)); }
+.stat-card:nth-child(4):hover { background: color-mix(in srgb, var(--c-export) 10%, var(--bg-card)); }
 
 .stat-card:nth-child(1) .stat-value { color: var(--c-production); }
 .stat-card:nth-child(2) .stat-value { color: var(--c-consumption); }
-.stat-card:nth-child(3) .stat-value { color: var(--c-renewables); }  /* was --c-nuclear — fixed semantic collision */
+.stat-card:nth-child(3) .stat-value { color: var(--c-renewables); }
 .stat-card:nth-child(4) .stat-value { color: var(--c-export); }
 
-/* Dynamic export/import states — toggled by JS based on sold value sign */
-.stat-card:nth-child(4).is-import   { border-top-color: var(--c-import); }
+/* Dynamic export/import states — background tint follows the color change */
+.stat-card:nth-child(4).is-import {
+  border-top-color: var(--c-import);
+  background: color-mix(in srgb, var(--c-import) 5%, var(--bg-card));
+}
+.stat-card:nth-child(4).is-import:hover { background: color-mix(in srgb, var(--c-import) 10%, var(--bg-card)); }
 .stat-card:nth-child(4).is-import .stat-value { color: var(--c-import); }
-.stat-card:nth-child(4).is-exporting { border-top-color: var(--c-nuclear); }
+
+.stat-card:nth-child(4).is-exporting {
+  border-top-color: var(--c-nuclear);
+  background: color-mix(in srgb, var(--c-nuclear) 5%, var(--bg-card));
+}
+.stat-card:nth-child(4).is-exporting:hover { background: color-mix(in srgb, var(--c-nuclear) 10%, var(--bg-card)); }
 .stat-card:nth-child(4).is-exporting .stat-value { color: var(--c-nuclear); }
 
 /* ===== Chart Sections ===== */
@@ -468,7 +505,7 @@ thead {
 }
 
 th {
-  background: var(--bg-card);
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-card));
   color: var(--text-muted);
   font-weight: 600;
   text-transform: uppercase;
